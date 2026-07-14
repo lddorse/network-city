@@ -1,6 +1,6 @@
-import { Entity } from "./Entity";
+import { Node } from "./Node";
 
-export class Router extends Entity {
+export class Router extends Node {
   hostname: string;
 
   constructor(id: string, hostname: string, x: number, y: number) {

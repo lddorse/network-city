@@ -1,20 +1,16 @@
 import { Building } from "./entities/Building";
 import { Router } from "./entities/Router";
 import { Vehicle } from "./entities/Vehicle";
+import { Link } from "./entities/Link";
 import { createMovement } from "./movement/Movement";
 import { MovementSystem } from "./systems/MovementSystem";
-
-export interface RouterLink {
-  routerAId: string;
-  routerBId: string;
-}
 
 const DELIVERY_VEHICLE_SPEED = 120; // world units per second
 
 export class World {
   buildings: Building[];
   routers: Router[];
-  links: RouterLink[];
+  links: Link[];
   vehicles: Vehicle[];
   movementSystem: MovementSystem;
 
@@ -29,18 +25,18 @@ export class World {
       new Router("r2", "R2", 610, 320),
     ];
 
-    this.links = [{ routerAId: "r1", routerBId: "r2" }];
-
     const [house, hospital] = this.buildings;
     const [r1, r2] = this.routers;
+
+    // House -> R1 -> R2 -> Hospital
+    this.links = [
+      new Link("house-r1", house, r1),
+      new Link("r1-r2", r1, r2),
+      new Link("r2-hospital", r2, hospital),
+    ];
+
     this.vehicles = [
-      new Vehicle(
-        "delivery-1",
-        createMovement(
-          [house.center, r1.position, r2.position, hospital.center],
-          DELIVERY_VEHICLE_SPEED
-        )
-      ),
+      new Vehicle("delivery-1", createMovement(this.links, DELIVERY_VEHICLE_SPEED)),
     ];
 
     this.movementSystem = new MovementSystem(this.vehicles);

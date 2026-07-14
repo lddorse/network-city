@@ -7,8 +7,8 @@ const WORLD_HEIGHT = 640;
 
 const ROUTER_RADIUS = 34;
 const ROUTER_COLOR = 0x345995;
-const ROUTER_LINK_COLOR = 0x82d8ff;
-const ROUTER_LINK_WIDTH = 6;
+const LINK_COLOR = 0x82d8ff;
+const LINK_WIDTH = 6;
 
 const VEHICLE_RADIUS = 10;
 const VEHICLE_COLOR = 0xffa500;
@@ -70,6 +70,18 @@ export default function App() {
       scene.rect(0, 316, WORLD_WIDTH, 8);
       scene.fill(0xf2d95c);
 
+      // Drawn before buildings/routers so their shapes paint over a link's
+      // endpoints, giving the same "line stops at the node" look as before
+      // without hardcoding per-node-type trim math.
+      for (const link of world.links) {
+        scene.moveTo(link.from.connectionPoint.x, link.from.connectionPoint.y);
+        scene.lineTo(link.to.connectionPoint.x, link.to.connectionPoint.y);
+        scene.stroke({
+          width: LINK_WIDTH,
+          color: LINK_COLOR,
+        });
+      }
+
       for (const building of world.buildings) {
         scene.roundRect(
           building.position.x,
@@ -84,22 +96,6 @@ export default function App() {
       for (const router of world.routers) {
         scene.circle(router.position.x, router.position.y, ROUTER_RADIUS);
         scene.fill(ROUTER_COLOR);
-      }
-
-      for (const link of world.links) {
-        const routerA = world.routers.find((router) => router.id === link.routerAId);
-        const routerB = world.routers.find((router) => router.id === link.routerBId);
-
-        if (!routerA || !routerB) {
-          continue;
-        }
-
-        scene.moveTo(routerA.position.x + ROUTER_RADIUS, routerA.position.y);
-        scene.lineTo(routerB.position.x - ROUTER_RADIUS, routerB.position.y);
-        scene.stroke({
-          width: ROUTER_LINK_WIDTH,
-          color: ROUTER_LINK_COLOR,
-        });
       }
 
       app.stage.addChild(scene);

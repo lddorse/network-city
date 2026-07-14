@@ -1,4 +1,5 @@
 import type { Vector2 } from "../entities/Entity";
+import type { Link } from "../entities/Link";
 
 export interface Movement {
   from: Vector2;
@@ -9,14 +10,19 @@ export interface Movement {
   progress: number; // 0 at "from", 1 at "to", for the current from->to segment
 }
 
-// path must have at least two points: a start and a destination, with any
-// intermediate waypoints in between, in travel order.
-export function createMovement(path: Vector2[], speed: number): Movement {
-  if (path.length < 2) {
-    throw new Error("A movement path needs at least two points");
+// links must be a non-empty, ordered chain, each connecting to the next
+// (link[i].to and link[i + 1].from are the same node). The path is resolved
+// once, from each node's connectionPoint, at construction time.
+export function createMovement(links: Link[], speed: number): Movement {
+  if (links.length === 0) {
+    throw new Error("A movement path needs at least one link");
   }
 
-  const [from, to, ...remainingWaypoints] = path;
+  const [firstLink, ...restLinks] = links;
+  const from = firstLink.from.connectionPoint;
+  const to = firstLink.to.connectionPoint;
+  const remainingWaypoints = restLinks.map((link) => link.to.connectionPoint);
+
   return { from, to, remainingWaypoints, speed, progress: 0 };
 }
 
