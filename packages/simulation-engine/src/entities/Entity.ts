@@ -4,10 +4,13 @@ export interface Vector2 {
 }
 
 export abstract class Entity {
-  constructor(
-    public id: string,
-    public position: Vector2
-  ) {}
+  id: string;
+  position: Vector2;
+
+  constructor(id: string, position: Vector2) {
+    this.id = id;
+    this.position = position;
+  }
 
   update(_delta: number): void {}
 }

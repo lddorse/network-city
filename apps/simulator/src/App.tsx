@@ -1,8 +1,26 @@
 import { useEffect, useRef } from "react";
-import { Application, Graphics, Text } from "pixi.js";
+import { Application, Graphics, Text, type Ticker } from "pixi.js";
+import { World } from "@network-city/simulation-engine";
 
 const WORLD_WIDTH = 960;
 const WORLD_HEIGHT = 640;
+
+const ROUTER_RADIUS = 34;
+const ROUTER_COLOR = 0x345995;
+const ROUTER_LINK_COLOR = 0x82d8ff;
+const ROUTER_LINK_WIDTH = 6;
+
+const VEHICLE_RADIUS = 10;
+const VEHICLE_COLOR = 0xffa500;
+
+const BUILDING_CORNER_RADIUS = 8;
+
+// Building fill colors are a rendering choice, not simulation state, so they
+// are keyed off the World's building ids here rather than living on Building.
+const BUILDING_COLORS: Record<string, number> = {
+  house: 0xd8c3a5,
+  hospital: 0xc9d8e6,
+};
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -14,11 +32,13 @@ export default function App() {
       return;
     }
 
+    const world = new World();
     const app = new Application();
     let cancelled = false;
     let initialized = false;
+    let unsubscribeArrival: (() => void) | undefined;
 
-    async function startPixi() {
+    const startPixi = async () => {
       await app.init({
         width: WORLD_WIDTH,
         height: WORLD_HEIGHT,
@@ -40,40 +60,49 @@ export default function App() {
 
       host.appendChild(app.canvas);
 
-      const world = new Graphics();
+      const scene = new Graphics();
 
       // Main road
-      world.rect(0, 265, WORLD_WIDTH, 110);
-      world.fill(0x555555);
+      scene.rect(0, 265, WORLD_WIDTH, 110);
+      scene.fill(0x555555);
 
       // Center line
-      world.rect(0, 316, WORLD_WIDTH, 8);
-      world.fill(0xf2d95c);
+      scene.rect(0, 316, WORLD_WIDTH, 8);
+      scene.fill(0xf2d95c);
 
-      // Home building
-      world.roundRect(90, 120, 150, 100, 8);
-      world.fill(0xd8c3a5);
+      for (const building of world.buildings) {
+        scene.roundRect(
+          building.position.x,
+          building.position.y,
+          building.width,
+          building.height,
+          BUILDING_CORNER_RADIUS
+        );
+        scene.fill(BUILDING_COLORS[building.id] ?? 0xffffff);
+      }
 
-      // Hospital building
-      world.roundRect(720, 420, 160, 110, 8);
-      world.fill(0xc9d8e6);
+      for (const router of world.routers) {
+        scene.circle(router.position.x, router.position.y, ROUTER_RADIUS);
+        scene.fill(ROUTER_COLOR);
+      }
 
-      // Routers
-      world.circle(350, 320, 34);
-      world.fill(0x345995);
+      for (const link of world.links) {
+        const routerA = world.routers.find((router) => router.id === link.routerAId);
+        const routerB = world.routers.find((router) => router.id === link.routerBId);
 
-      world.circle(610, 320, 34);
-      world.fill(0x345995);
+        if (!routerA || !routerB) {
+          continue;
+        }
 
-      // Router link
-      world.moveTo(384, 320);
-      world.lineTo(576, 320);
-      world.stroke({
-        width: 6,
-        color: 0x82d8ff,
-      });
+        scene.moveTo(routerA.position.x + ROUTER_RADIUS, routerA.position.y);
+        scene.lineTo(routerB.position.x - ROUTER_RADIUS, routerB.position.y);
+        scene.stroke({
+          width: ROUTER_LINK_WIDTH,
+          color: ROUTER_LINK_COLOR,
+        });
+      }
 
-      app.stage.addChild(world);
+      app.stage.addChild(scene);
 
       const title = new Text({
         text: "Network City",
@@ -87,30 +116,45 @@ export default function App() {
       title.position.set(20, 20);
       app.stage.addChild(title);
 
-      const r1Label = new Text({
-        text: "R1",
-        style: {
-          fill: 0xffffff,
-          fontSize: 18,
-        },
+      for (const router of world.routers) {
+        const label = new Text({
+          text: router.hostname,
+          style: {
+            fill: 0xffffff,
+            fontSize: 18,
+          },
+        });
+
+        label.anchor.set(0.5);
+        label.position.set(router.position.x, router.position.y);
+        app.stage.addChild(label);
+      }
+
+      const vehicleGraphics = new Map<string, Graphics>();
+
+      for (const vehicle of world.vehicles) {
+        const graphic = new Graphics();
+        graphic.circle(0, 0, VEHICLE_RADIUS);
+        graphic.fill(VEHICLE_COLOR);
+        graphic.position.set(vehicle.position.x, vehicle.position.y);
+        app.stage.addChild(graphic);
+        vehicleGraphics.set(vehicle.id, graphic);
+      }
+
+      unsubscribeArrival = world.movementSystem.onArrival.on(({ vehicleId }) => {
+        console.log(`Delivery arrived: ${vehicleId}`);
       });
 
-      r1Label.anchor.set(0.5);
-      r1Label.position.set(350, 320);
-      app.stage.addChild(r1Label);
+      const handleTick = (ticker: Ticker) => {
+        world.update(ticker.deltaMS / 1000);
 
-      const r2Label = new Text({
-        text: "R2",
-        style: {
-          fill: 0xffffff,
-          fontSize: 18,
-        },
-      });
+        for (const vehicle of world.vehicles) {
+          vehicleGraphics.get(vehicle.id)?.position.set(vehicle.position.x, vehicle.position.y);
+        }
+      };
 
-      r2Label.anchor.set(0.5);
-      r2Label.position.set(610, 320);
-      app.stage.addChild(r2Label);
-    }
+      app.ticker.add(handleTick);
+    };
 
     startPixi().catch((error: unknown) => {
       console.error("Failed to initialize Network City:", error);
@@ -118,6 +162,7 @@ export default function App() {
 
     return () => {
       cancelled = true;
+      unsubscribeArrival?.();
 
       if (!initialized) {
         return;

@@ -1,0 +1,8 @@
+{
+  "name": "network-city",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
