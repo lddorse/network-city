@@ -1,20 +1,27 @@
-import type { Node } from "./Node";
+import type { NetworkInterface } from "./NetworkInterface";
 
 export type LinkStatus = "up" | "down";
 
-// An explicit connection between two Nodes. Carries no position of its own;
-// its endpoints are resolved from `from`/`to` as needed.
+// An explicit connection between two interfaces (not nodes directly).
+// Carries no position of its own; a drawable point is reached via
+// endpointA.owner.connectionPoint / endpointB.owner.connectionPoint.
 export class Link {
   id: string;
-  from: Node;
-  to: Node;
+  endpointA: NetworkInterface;
+  endpointB: NetworkInterface;
   status: LinkStatus;
   cost: number;
 
-  constructor(id: string, from: Node, to: Node, status: LinkStatus = "up", cost: number = 1) {
+  constructor(
+    id: string,
+    endpointA: NetworkInterface,
+    endpointB: NetworkInterface,
+    status: LinkStatus = "up",
+    cost: number = 1
+  ) {
     this.id = id;
-    this.from = from;
-    this.to = to;
+    this.endpointA = endpointA;
+    this.endpointB = endpointB;
     this.status = status;
     this.cost = cost;
   }

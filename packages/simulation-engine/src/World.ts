@@ -2,6 +2,7 @@ import { Building } from "./entities/Building";
 import { Router } from "./entities/Router";
 import { Vehicle } from "./entities/Vehicle";
 import { Link } from "./entities/Link";
+import { NetworkInterface } from "./entities/NetworkInterface";
 import { createMovement } from "./movement/Movement";
 import { MovementSystem } from "./systems/MovementSystem";
 
@@ -28,11 +29,25 @@ export class World {
     const [house, hospital] = this.buildings;
     const [r1, r2] = this.routers;
 
-    // House -> R1 -> R2 -> Hospital
+    const houseEth0 = new NetworkInterface("house-eth0", "eth0", house);
+    house.interfaces.push(houseEth0);
+
+    const hospitalEth0 = new NetworkInterface("hospital-eth0", "eth0", hospital);
+    hospital.interfaces.push(hospitalEth0);
+
+    const r1Gi00 = new NetworkInterface("r1-gi0/0", "Gi0/0", r1);
+    const r1Gi01 = new NetworkInterface("r1-gi0/1", "Gi0/1", r1);
+    r1.interfaces.push(r1Gi00, r1Gi01);
+
+    const r2Gi00 = new NetworkInterface("r2-gi0/0", "Gi0/0", r2);
+    const r2Gi01 = new NetworkInterface("r2-gi0/1", "Gi0/1", r2);
+    r2.interfaces.push(r2Gi00, r2Gi01);
+
+    // House.eth0 -> R1.Gi0/0 -> R1.Gi0/1 -> R2.Gi0/0 -> R2.Gi0/1 -> Hospital.eth0
     this.links = [
-      new Link("house-r1", house, r1),
-      new Link("r1-r2", r1, r2),
-      new Link("r2-hospital", r2, hospital),
+      new Link("house-r1", houseEth0, r1Gi00),
+      new Link("r1-r2", r1Gi01, r2Gi00),
+      new Link("r2-hospital", r2Gi01, hospitalEth0),
     ];
 
     this.vehicles = [

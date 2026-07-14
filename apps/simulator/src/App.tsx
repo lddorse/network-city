@@ -1,6 +1,9 @@
-import { useEffect, useRef } from "react";
-import { Application, Graphics, Text, type Ticker } from "pixi.js";
+import { useEffect, useRef, useState } from "react";
+import { Application, Container, Graphics, Rectangle, Text, type Ticker } from "pixi.js";
 import { World } from "@network-city/simulation-engine";
+import type { Building, Link, NetworkInterface, Router, Vector2 } from "@network-city/simulation-engine";
+import Inspector, { type Selection } from "./Inspector";
+import InterfaceTooltip from "./InterfaceTooltip";
 
 const WORLD_WIDTH = 960;
 const WORLD_HEIGHT = 640;
@@ -15,6 +18,50 @@ const VEHICLE_COLOR = 0xffa500;
 
 const BUILDING_CORNER_RADIUS = 8;
 
+const SELECTION_OUTLINE_COLOR = 0xffff00;
+const SELECTION_OUTLINE_WIDTH = 4;
+
+const INTERFACE_LABEL_OFFSET = 50;
+const INTERFACE_LABEL_COLOR = 0xf8f8f8;
+const INTERFACE_LABEL_FONT_SIZE = 12;
+const INTERFACE_LABEL_PADDING = 3;
+const INTERFACE_LABEL_CORNER_RADIUS = 4;
+const INTERFACE_LABEL_BACKGROUND_COLOR = 0x232328; // rgb(35, 35, 40)
+const INTERFACE_LABEL_BACKGROUND_ALPHA = 0.95;
+const INTERFACE_LABEL_BORDER_COLOR = 0xffffff;
+const INTERFACE_LABEL_BORDER_ALPHA = 0.08;
+const INTERFACE_LABEL_BORDER_WIDTH = 1;
+// Extra hit-area beyond the visible background, so hovering doesn't require
+// pixel-perfect mouse positioning on the small label itself.
+const INTERFACE_LABEL_HOVER_PADDING = 8;
+
+const INTERFACE_LED_RADIUS = 3;
+const INTERFACE_LED_GAP = 4; // gap between the LED and the label background
+const INTERFACE_LED_COLOR_UP = 0x22c55e;
+const INTERFACE_LED_COLOR_DEGRADED = 0xeab308;
+const INTERFACE_LED_COLOR_DOWN = 0xef4444;
+const INTERFACE_LED_COLOR_UNCONNECTED = 0x9ca3af;
+
+// Connectivity takes priority: an unplugged interface reads as gray
+// regardless of what its admin/oper flags happen to say.
+function interfaceStatusColor(iface: NetworkInterface, links: Link[]): number {
+  const isConnected = links.some((link) => link.endpointA === iface || link.endpointB === iface);
+
+  if (!isConnected) {
+    return INTERFACE_LED_COLOR_UNCONNECTED;
+  }
+
+  if (iface.administrativeStatus === "down") {
+    return INTERFACE_LED_COLOR_DOWN;
+  }
+
+  if (iface.operationalStatus === "down") {
+    return INTERFACE_LED_COLOR_DEGRADED;
+  }
+
+  return INTERFACE_LED_COLOR_UP;
+}
+
 // Building fill colors are a rendering choice, not simulation state, so they
 // are keyed off the World's building ids here rather than living on Building.
 const BUILDING_COLORS: Record<string, number> = {
@@ -22,8 +69,87 @@ const BUILDING_COLORS: Record<string, number> = {
   hospital: 0xc9d8e6,
 };
 
+function drawBuilding(graphic: Graphics, building: Building, selected: boolean): void {
+  graphic.clear();
+  graphic.roundRect(
+    building.position.x,
+    building.position.y,
+    building.width,
+    building.height,
+    BUILDING_CORNER_RADIUS
+  );
+  graphic.fill(BUILDING_COLORS[building.id] ?? 0xffffff);
+
+  if (selected) {
+    graphic.roundRect(
+      building.position.x,
+      building.position.y,
+      building.width,
+      building.height,
+      BUILDING_CORNER_RADIUS
+    );
+    graphic.stroke({ width: SELECTION_OUTLINE_WIDTH, color: SELECTION_OUTLINE_COLOR });
+  }
+}
+
+function drawRouter(graphic: Graphics, router: Router, selected: boolean): void {
+  graphic.clear();
+  graphic.circle(router.position.x, router.position.y, ROUTER_RADIUS);
+  graphic.fill(ROUTER_COLOR);
+
+  if (selected) {
+    graphic.circle(router.position.x, router.position.y, ROUTER_RADIUS);
+    graphic.stroke({ width: SELECTION_OUTLINE_WIDTH, color: SELECTION_OUTLINE_COLOR });
+  }
+}
+
+// A point `distance` units from `from`, along the direction toward `towards`.
+// Used to place an interface label just outside its owning node, regardless
+// of that node's shape or the link's angle (no per-device coordinates).
+function offsetPosition(from: Vector2, towards: Vector2, distance: number): Vector2 {
+  const dx = towards.x - from.x;
+  const dy = towards.y - from.y;
+  const length = Math.sqrt(dx * dx + dy * dy);
+
+  if (length === 0) {
+    return { ...from };
+  }
+
+  return {
+    x: from.x + (dx / length) * distance,
+    y: from.y + (dy / length) * distance,
+  };
+}
+
+function drawLink(graphic: Graphics, link: Link, selected: boolean): void {
+  const from = link.endpointA.owner.connectionPoint;
+  const to = link.endpointB.owner.connectionPoint;
+
+  graphic.clear();
+  graphic.moveTo(from.x, from.y);
+  graphic.lineTo(to.x, to.y);
+  graphic.stroke({ width: LINK_WIDTH, color: LINK_COLOR });
+
+  if (selected) {
+    graphic.moveTo(from.x, from.y);
+    graphic.lineTo(to.x, to.y);
+    graphic.stroke({ width: SELECTION_OUTLINE_WIDTH, color: SELECTION_OUTLINE_COLOR });
+  }
+}
+
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const worldRef = useRef<World | undefined>(undefined);
+  const buildingGraphicsRef = useRef<Map<string, Graphics>>(new Map());
+  const routerGraphicsRef = useRef<Map<string, Graphics>>(new Map());
+  const linkGraphicsRef = useRef<Map<string, Graphics>>(new Map());
+  const [selection, setSelection] = useState<Selection | undefined>(undefined);
+  // Mirrors world.links for the Inspector prop below; render must not read
+  // worldRef.current directly, so this is set once when World is created.
+  const [links, setLinks] = useState<Link[]>([]);
+  const [hover, setHover] = useState<{ iface: NetworkInterface; x: number; y: number } | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     const host = containerRef.current;
@@ -33,6 +159,9 @@ export default function App() {
     }
 
     const world = new World();
+    worldRef.current = world;
+    setLinks(world.links);
+
     const app = new Application();
     let cancelled = false;
     let initialized = false;
@@ -60,45 +189,76 @@ export default function App() {
 
       host.appendChild(app.canvas);
 
-      const scene = new Graphics();
+      // Clicking empty canvas (not caught by an entity below) clears selection.
+      app.stage.eventMode = "static";
+      app.stage.hitArea = new Rectangle(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      app.stage.on("pointertap", () => {
+        setSelection(undefined);
+      });
+
+      const background = new Graphics();
 
       // Main road
-      scene.rect(0, 265, WORLD_WIDTH, 110);
-      scene.fill(0x555555);
+      background.rect(0, 265, WORLD_WIDTH, 110);
+      background.fill(0x555555);
 
       // Center line
-      scene.rect(0, 316, WORLD_WIDTH, 8);
-      scene.fill(0xf2d95c);
+      background.rect(0, 316, WORLD_WIDTH, 8);
+      background.fill(0xf2d95c);
 
-      // Drawn before buildings/routers so their shapes paint over a link's
-      // endpoints, giving the same "line stops at the node" look as before
-      // without hardcoding per-node-type trim math.
+      app.stage.addChild(background);
+
+      // Links are added before buildings/routers so those shapes paint over
+      // a link's endpoints, giving the same "line stops at the node" look
+      // as before without hardcoding per-node-type trim math.
+      const linkGraphics = new Map<string, Graphics>();
+
       for (const link of world.links) {
-        scene.moveTo(link.from.connectionPoint.x, link.from.connectionPoint.y);
-        scene.lineTo(link.to.connectionPoint.x, link.to.connectionPoint.y);
-        scene.stroke({
-          width: LINK_WIDTH,
-          color: LINK_COLOR,
+        const graphic = new Graphics();
+        drawLink(graphic, link, false);
+        graphic.eventMode = "static";
+        graphic.cursor = "pointer";
+        graphic.on("pointertap", (event) => {
+          event.stopPropagation();
+          setSelection({ kind: "link", entity: link });
         });
+        app.stage.addChild(graphic);
+        linkGraphics.set(link.id, graphic);
       }
+
+      const buildingGraphics = new Map<string, Graphics>();
 
       for (const building of world.buildings) {
-        scene.roundRect(
-          building.position.x,
-          building.position.y,
-          building.width,
-          building.height,
-          BUILDING_CORNER_RADIUS
-        );
-        scene.fill(BUILDING_COLORS[building.id] ?? 0xffffff);
+        const graphic = new Graphics();
+        drawBuilding(graphic, building, false);
+        graphic.eventMode = "static";
+        graphic.cursor = "pointer";
+        graphic.on("pointertap", (event) => {
+          event.stopPropagation();
+          setSelection({ kind: "building", entity: building });
+        });
+        app.stage.addChild(graphic);
+        buildingGraphics.set(building.id, graphic);
       }
+
+      const routerGraphics = new Map<string, Graphics>();
 
       for (const router of world.routers) {
-        scene.circle(router.position.x, router.position.y, ROUTER_RADIUS);
-        scene.fill(ROUTER_COLOR);
+        const graphic = new Graphics();
+        drawRouter(graphic, router, false);
+        graphic.eventMode = "static";
+        graphic.cursor = "pointer";
+        graphic.on("pointertap", (event) => {
+          event.stopPropagation();
+          setSelection({ kind: "router", entity: router });
+        });
+        app.stage.addChild(graphic);
+        routerGraphics.set(router.id, graphic);
       }
 
-      app.stage.addChild(scene);
+      linkGraphicsRef.current = linkGraphics;
+      buildingGraphicsRef.current = buildingGraphics;
+      routerGraphicsRef.current = routerGraphics;
 
       const title = new Text({
         text: "Network City",
@@ -124,6 +284,89 @@ export default function App() {
         label.anchor.set(0.5);
         label.position.set(router.position.x, router.position.y);
         app.stage.addChild(label);
+      }
+
+      // A compact, hoverable label per link endpoint, positioned away from
+      // its owning node along the link's own direction (so it reads well on
+      // both the horizontal R1<->R2 link and the diagonal building links).
+      const addInterfaceLabel = (iface: NetworkInterface, position: Vector2) => {
+        const text = new Text({
+          text: iface.name,
+          style: {
+            fill: INTERFACE_LABEL_COLOR,
+            fontSize: INTERFACE_LABEL_FONT_SIZE,
+          },
+        });
+        text.anchor.set(0.5);
+
+        const backgroundWidth = text.width + INTERFACE_LABEL_PADDING * 2;
+        const backgroundHeight = text.height + INTERFACE_LABEL_PADDING * 2;
+
+        const background = new Graphics();
+        background.roundRect(
+          -backgroundWidth / 2,
+          -backgroundHeight / 2,
+          backgroundWidth,
+          backgroundHeight,
+          INTERFACE_LABEL_CORNER_RADIUS
+        );
+        background.fill({
+          color: INTERFACE_LABEL_BACKGROUND_COLOR,
+          alpha: INTERFACE_LABEL_BACKGROUND_ALPHA,
+        });
+        background.roundRect(
+          -backgroundWidth / 2,
+          -backgroundHeight / 2,
+          backgroundWidth,
+          backgroundHeight,
+          INTERFACE_LABEL_CORNER_RADIUS
+        );
+        background.stroke({
+          width: INTERFACE_LABEL_BORDER_WIDTH,
+          color: INTERFACE_LABEL_BORDER_COLOR,
+          alpha: INTERFACE_LABEL_BORDER_ALPHA,
+        });
+
+        // Sits outside the label background so it never resizes it; purely
+        // visual, not part of the (unchanged) hover hit area below.
+        const led = new Graphics();
+        led.circle(
+          -backgroundWidth / 2 - INTERFACE_LED_GAP - INTERFACE_LED_RADIUS,
+          0,
+          INTERFACE_LED_RADIUS
+        );
+        led.fill(interfaceStatusColor(iface, world.links));
+
+        const container = new Container();
+        container.position.set(position.x, position.y);
+        container.addChild(background, led, text);
+
+        // Hit area is larger than the visible background so hovering is
+        // forgiving, while the label itself stays the same visible size.
+        container.eventMode = "static";
+        container.cursor = "pointer";
+        container.hitArea = new Rectangle(
+          -backgroundWidth / 2 - INTERFACE_LABEL_HOVER_PADDING,
+          -backgroundHeight / 2 - INTERFACE_LABEL_HOVER_PADDING,
+          backgroundWidth + INTERFACE_LABEL_HOVER_PADDING * 2,
+          backgroundHeight + INTERFACE_LABEL_HOVER_PADDING * 2
+        );
+        container.on("pointerover", (event) => {
+          setHover({ iface, x: event.clientX, y: event.clientY });
+        });
+        container.on("pointerout", () => {
+          setHover(undefined);
+        });
+
+        app.stage.addChild(container);
+      };
+
+      for (const link of world.links) {
+        const pointA = link.endpointA.owner.connectionPoint;
+        const pointB = link.endpointB.owner.connectionPoint;
+
+        addInterfaceLabel(link.endpointA, offsetPosition(pointA, pointB, INTERFACE_LABEL_OFFSET));
+        addInterfaceLabel(link.endpointB, offsetPosition(pointB, pointA, INTERFACE_LABEL_OFFSET));
       }
 
       const vehicleGraphics = new Map<string, Graphics>();
@@ -176,6 +419,40 @@ export default function App() {
     };
   }, []);
 
+  // Redraws only the shapes whose selected state changed, without touching
+  // the one-time Pixi setup above or the running delivery animation.
+  useEffect(() => {
+    const world = worldRef.current;
+
+    if (!world) {
+      return;
+    }
+
+    for (const building of world.buildings) {
+      const graphic = buildingGraphicsRef.current.get(building.id);
+
+      if (graphic) {
+        drawBuilding(graphic, building, selection?.kind === "building" && selection.entity === building);
+      }
+    }
+
+    for (const router of world.routers) {
+      const graphic = routerGraphicsRef.current.get(router.id);
+
+      if (graphic) {
+        drawRouter(graphic, router, selection?.kind === "router" && selection.entity === router);
+      }
+    }
+
+    for (const link of world.links) {
+      const graphic = linkGraphicsRef.current.get(link.id);
+
+      if (graphic) {
+        drawLink(graphic, link, selection?.kind === "link" && selection.entity === link);
+      }
+    }
+  }, [selection]);
+
   return (
     <main
       style={{
@@ -186,7 +463,11 @@ export default function App() {
       }}
     >
       <h1 style={{ color: "white", marginTop: 0 }}>Network City</h1>
-      <div ref={containerRef} />
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div ref={containerRef} />
+        <Inspector selection={selection} links={links} />
+      </div>
+      {hover && <InterfaceTooltip iface={hover.iface} links={links} x={hover.x} y={hover.y} />}
     </main>
   );
 }

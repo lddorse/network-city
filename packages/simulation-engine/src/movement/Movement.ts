@@ -11,17 +11,18 @@ export interface Movement {
 }
 
 // links must be a non-empty, ordered chain, each connecting to the next
-// (link[i].to and link[i + 1].from are the same node). The path is resolved
-// once, from each node's connectionPoint, at construction time.
+// (link[i].endpointB.owner and link[i + 1].endpointA.owner are the same
+// node). The path is resolved once, from each endpoint owner's
+// connectionPoint, at construction time.
 export function createMovement(links: Link[], speed: number): Movement {
   if (links.length === 0) {
     throw new Error("A movement path needs at least one link");
   }
 
   const [firstLink, ...restLinks] = links;
-  const from = firstLink.from.connectionPoint;
-  const to = firstLink.to.connectionPoint;
-  const remainingWaypoints = restLinks.map((link) => link.to.connectionPoint);
+  const from = firstLink.endpointA.owner.connectionPoint;
+  const to = firstLink.endpointB.owner.connectionPoint;
+  const remainingWaypoints = restLinks.map((link) => link.endpointB.owner.connectionPoint);
 
   return { from, to, remainingWaypoints, speed, progress: 0 };
 }
