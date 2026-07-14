@@ -32,10 +32,14 @@ export class World {
     this.links = [{ routerAId: "r1", routerBId: "r2" }];
 
     const [house, hospital] = this.buildings;
+    const [r1, r2] = this.routers;
     this.vehicles = [
       new Vehicle(
         "delivery-1",
-        createMovement(house.center, hospital.center, DELIVERY_VEHICLE_SPEED)
+        createMovement(
+          [house.center, r1.position, r2.position, hospital.center],
+          DELIVERY_VEHICLE_SPEED
+        )
       ),
     ];
 
