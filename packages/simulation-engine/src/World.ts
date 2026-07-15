@@ -7,6 +7,7 @@ import { createMovement } from "./movement/Movement.ts";
 import { MovementSystem } from "./systems/MovementSystem.ts";
 import { InterfaceStatusSystem } from "./systems/InterfaceStatusSystem.ts";
 import { DeliverySystem } from "./systems/DeliverySystem.ts";
+import { RoutingTableSystem } from "./systems/RoutingTableSystem.ts";
 import { IPv4Address } from "./network/IPv4Address.ts";
 
 const DELIVERY_VEHICLE_SPEED = 120; // world units per second
@@ -19,6 +20,7 @@ export class World {
   movementSystem: MovementSystem;
   deliverySystem: DeliverySystem;
   interfaceStatusSystem: InterfaceStatusSystem;
+  routingTableSystem: RoutingTableSystem;
 
   constructor() {
     this.buildings = [
@@ -70,10 +72,15 @@ export class World {
     this.interfaceStatusSystem = new InterfaceStatusSystem([...this.buildings, ...this.routers], this.links);
     // Resolve derived status once up front so it's correct before the first tick.
     this.interfaceStatusSystem.recompute();
+    this.routingTableSystem = new RoutingTableSystem(this.routers);
+    // Routing tables derive from operational status, so build them only
+    // after that first recompute above.
+    this.routingTableSystem.rebuild();
   }
 
   update(delta: number): void {
     this.interfaceStatusSystem.update(delta);
+    this.routingTableSystem.update(delta);
     this.deliverySystem.update(delta);
   }
 }

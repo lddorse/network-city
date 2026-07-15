@@ -7,7 +7,13 @@ import type {
   Node,
   Router,
 } from "@network-city/simulation-engine";
-import { describeEndpoint, formatIPv4Cidr, subnetCompatibility, subnetDetails } from "./deviceLabels";
+import {
+  describeEndpoint,
+  formatIPv4Cidr,
+  formatRouteLine,
+  subnetCompatibility,
+  subnetDetails,
+} from "./deviceLabels";
 
 export type Selection =
   | { kind: "building"; entity: Building }
@@ -131,6 +137,84 @@ const devButtonStyle = (active: boolean): CSSProperties => ({
   cursor: active ? "default" : "pointer",
 });
 
+// Router-only: unlike the plain id list in ConnectedLinks, this shows enough
+// per-link detail (and the same temporary Up/Down control as the Link
+// Inspector) to exercise link failure without leaving the Router panel —
+// e.g. to watch its routing table live-update as a link goes down/up.
+function RouterConnectedLinks({
+  router,
+  links,
+  onSetLinkStatus,
+}: {
+  router: Router;
+  links: Link[];
+  onSetLinkStatus: (link: Link, status: LinkStatus) => void;
+}) {
+  const connected = links.filter(
+    (link) => link.endpointA.owner === router || link.endpointB.owner === router
+  );
+
+  if (connected.length === 0) {
+    return <div>None</div>;
+  }
+
+  return (
+    <div>
+      {connected.map((link) => {
+        const isEndpointA = link.endpointA.owner === router;
+        const localIface = isEndpointA ? link.endpointA : link.endpointB;
+        const peerIface = isEndpointA ? link.endpointB : link.endpointA;
+
+        return (
+          <div
+            key={link.id}
+            style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid #374151" }}
+          >
+            <div>{link.id}</div>
+            <div style={{ color: "#9ca3af", fontSize: 12 }}>local: {localIface.name}</div>
+            <div style={{ color: "#9ca3af", fontSize: 12 }}>peer: {describeEndpoint(peerIface)}</div>
+            <div style={{ color: "#9ca3af", fontSize: 12 }}>status: {link.status}</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button
+                type="button"
+                style={devButtonStyle(link.status === "up")}
+                disabled={link.status === "up"}
+                onClick={() => onSetLinkStatus(link, "up")}
+              >
+                Up
+              </button>
+              <button
+                type="button"
+                style={devButtonStyle(link.status === "down")}
+                disabled={link.status === "down"}
+                onClick={() => onSetLinkStatus(link, "down")}
+              >
+                Down
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RoutingTableView({ router }: { router: Router }) {
+  const { routes } = router.routingTable;
+
+  if (routes.length === 0) {
+    return <div>None</div>;
+  }
+
+  return (
+    <div style={{ fontFamily: "monospace", fontSize: 12 }}>
+      {routes.map((route, index) => (
+        <div key={index}>{formatRouteLine(route, router)}</div>
+      ))}
+    </div>
+  );
+}
+
 export default function Inspector({ selection, links, onSetLinkStatus }: InspectorProps) {
   if (!selection) {
     return (
@@ -171,10 +255,13 @@ export default function Inspector({ selection, links, onSetLinkStatus }: Inspect
         <Field label="type">Router</Field>
         <Field label="position">{formatPosition(router.position)}</Field>
         <Field label="connected links">
-          <ConnectedLinks node={router} links={links} />
+          <RouterConnectedLinks router={router} links={links} onSetLinkStatus={onSetLinkStatus} />
         </Field>
         <Field label="interfaces">
           <InterfaceList interfaces={router.interfaces} links={links} />
+        </Field>
+        <Field label="routing table">
+          <RoutingTableView router={router} />
         </Field>
       </aside>
     );

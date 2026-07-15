@@ -152,6 +152,15 @@ function drawLink(graphic: Graphics, link: Link, selected: boolean): void {
   }
 }
 
+// A cheap, stable string summarizing a router's current routing table, so a
+// ticker callback can detect "did this actually change" without diffing
+// route objects or copying route data anywhere.
+function routingTableSignature(router: Router): string {
+  return router.routingTable.routes
+    .map((route) => `${route.type}|${route.destination}|${route.prefixLength}|${route.outgoingInterfaceId}`)
+    .join(";");
+}
+
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<World | undefined>(undefined);
@@ -166,6 +175,20 @@ export default function App() {
   const [hover, setHover] = useState<{ iface: NetworkInterface; x: number; y: number } | undefined>(
     undefined
   );
+  // Tracks the currently selected router (if any) for the persistent
+  // handleTick closure below, which is created once at mount and would
+  // otherwise only ever see the initial `selection` value.
+  const selectedRouterRef = useRef<Router | undefined>(undefined);
+  // The selected router's routing-table signature as of the last tick that
+  // triggered a rerender, so handleTick can tell whether anything actually
+  // changed instead of rerendering every frame. Reset whenever selection
+  // changes (see the effect below).
+  const lastRoutingTableSignatureRef = useRef<string | undefined>(undefined);
+  // Unused value: its setter is called only when the selected router's
+  // routing table signature changes, purely to force Inspector to
+  // re-render and re-read the live `router.routingTable.routes` — no
+  // routing data is copied into state.
+  const [, forceRerender] = useState(0);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -420,6 +443,21 @@ export default function App() {
       const handleTick = (ticker: Ticker) => {
         world.update(ticker.deltaMS / 1000);
 
+        // The routing table is derived every tick in the engine, but the
+        // 60 FPS ticker shouldn't drive React rendering by itself — only
+        // force Inspector to re-render when the selected router's routing
+        // table actually changed since the last time we checked.
+        const selectedRouter = selectedRouterRef.current;
+
+        if (selectedRouter) {
+          const signature = routingTableSignature(selectedRouter);
+
+          if (signature !== lastRoutingTableSignatureRef.current) {
+            lastRoutingTableSignatureRef.current = signature;
+            forceRerender((n) => n + 1);
+          }
+        }
+
         for (const link of world.links) {
           for (const iface of [link.endpointA, link.endpointB]) {
             const graphic = interfaceLedGraphicsRef.current.get(iface.id);
@@ -466,6 +504,11 @@ export default function App() {
   // Redraws only the shapes whose selected state changed, without touching
   // the one-time Pixi setup above or the running delivery animation.
   useEffect(() => {
+    selectedRouterRef.current = selection?.kind === "router" ? selection.entity : undefined;
+    // A different (or no) selection invalidates whatever signature was
+    // last observed, so the next tick always re-checks from scratch.
+    lastRoutingTableSignatureRef.current = undefined;
+
     const world = worldRef.current;
 
     if (!world) {

@@ -1,5 +1,5 @@
 import { Building, Router } from "@network-city/simulation-engine";
-import type { Link, NetworkInterface, Node } from "@network-city/simulation-engine";
+import type { Link, NetworkInterface, Node, Route } from "@network-city/simulation-engine";
 
 // Nodes only share id/position; getting a human label requires narrowing
 // to read its type-specific name (Building.name, Router.hostname).
@@ -55,4 +55,21 @@ export function subnetCompatibility(link: Link): string {
   }
 
   return endpointA.ipv4.hasMatchingSubnetConfiguration(endpointB.ipv4) ? "Same subnet" : "Different subnet";
+}
+
+const ROUTE_TYPE_CODE: Record<Route["type"], string> = {
+  Connected: "C",
+  Local: "L",
+};
+
+// Cisco `show ip route` line format. Purely presentational — the engine
+// only stores destination/prefix/type/outgoingInterfaceId.
+export function formatRouteLine(route: Route, router: Router): string {
+  const outgoingInterface = router.interfaces.find(
+    (iface) => iface.id === route.outgoingInterfaceId
+  );
+
+  return `${ROUTE_TYPE_CODE[route.type]} ${route.destination}/${route.prefixLength} is directly connected, ${
+    outgoingInterface?.name ?? route.outgoingInterfaceId
+  }`;
 }

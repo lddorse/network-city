@@ -33,6 +33,7 @@ It must not depend on:
 - DOM APIs
 - asset paths
 - UI state
+- rendering
 
 The simulation engine may contain:
 
@@ -61,6 +62,8 @@ The simulation engine may contain:
 
 Do not move networking behavior into this package before a concrete feature requires it.
 
+As of the Interfaces, IPv4 Addressing, and IPv4 Subnet Derivation milestones, interfaces and IPv4 addressing already live in `packages/simulation-engine`. That is expected, not a violation of this section — it is exactly what "do not move it until required" produces.
+
 ### IOS CLI Package
 
 `packages/ios-cli` will eventually parse authentic Cisco-style commands and translate them into simulation actions.
@@ -83,6 +86,8 @@ The simulator reads state from the engine and visualizes it.
 
 The renderer must not become the source of truth.
 
+The renderer observes `World` objects and never owns networking state.
+
 ## Source of Truth
 
 The `World` is the source of truth for the current simulation.
@@ -90,6 +95,9 @@ The `World` is the source of truth for the current simulation.
 React, PixiJS, and the CLI are interfaces to the World.
 
 The renderer must read positions and state from the World rather than maintaining duplicate simulation state.
+
+- Systems derive state rather than storing duplicate state (for example, `InterfaceStatusSystem` recomputes `operationalStatus` every tick instead of callers setting it directly).
+- Prefer derived state over mutable, independently-tracked state whenever practical (for example, `IPv4Address` computes network/broadcast/mask on demand rather than the engine storing them separately).
 
 ## Entity and Rendering Rules
 
@@ -135,6 +143,23 @@ Links may later include:
 
 Do not implement routing decisions merely because links exist. Add routing only when a scoped milestone requires it.
 
+## Networking Modeling
+
+Model networking concepts in the engine before any Cisco command configures them.
+
+The engine should model, roughly in this order:
+
+- Node
+- Link
+- NetworkInterface
+- IPv4Address
+- Route
+- RoutingTable
+
+Each concept should work correctly and be observable in the simulator before the CLI can create, configure, or inspect it.
+
+The CLI is a controller for the simulation, not the simulation itself.
+
 ## Coding Principles
 
 - Prefer composition over inheritance unless inheritance clearly models an `is-a` relationship.
@@ -147,6 +172,37 @@ Do not implement routing decisions merely because links exist. Add routing only 
 - Do not refactor unrelated code during feature work.
 - Preserve existing behavior unless the task explicitly changes it.
 - Add dependencies only when necessary and ask before installing significant new ones.
+
+## API Design
+
+Prefer API names that describe the exact networking concept being modeled. Avoid names that imply broader networking semantics than the implementation actually provides.
+
+For example, `hasMatchingSubnetConfiguration()` checks that two interfaces share a prefix length and a derived network address — a configuration consistency check. It is deliberately not named `isInSameSubnet()` or `isOnLinkWith()`, because real on-link determination is interface-perspective and can be asymmetric when prefix lengths differ (one side may consider the other on-link while the reverse does not hold). That is a separate, later API, not this one.
+
+When a method's name could be read as promising more networking correctness than it delivers, rename it or scope it down before shipping it.
+
+## Development Philosophy
+
+- Build in small, incremental milestones.
+- Behavior before visualization: engine behavior should be correct before the renderer displays it.
+- Architecture before features: prefer the right shape now over a convenient shortcut that needs undoing later.
+- Every new engine behavior ships with focused tests.
+- The renderer stays as dumb as practical — it reads and displays `World` state, it does not decide networking behavior.
+
+## Design Principle
+
+Every milestone should answer one networking question.
+
+Examples:
+
+- What is an interface?
+- What makes an interface operationally down?
+- Where do connected routes come from?
+- Why does a router choose one route over another?
+
+Avoid implementing a feature simply because IOS has it. Implement the underlying networking behavior first, then let the CLI configure and inspect that behavior.
+
+The CLI configures and inspects existing simulation behavior — it does not create networking behavior.
 
 ## Development Workflow
 
@@ -205,27 +261,35 @@ Ask before:
 - changing global system configuration
 - committing or pushing code
 
-## Current Milestone Strategy
+## Current Roadmap
 
 Build the project through small, named milestones.
 
-Completed foundations include:
+Completed:
 
-- npm workspace setup
-- framework-independent simulation engine
-- World-driven rendering
-- first delivery movement
-- multi-segment waypoint movement
+- ✓ World
+- ✓ Movement
+- ✓ Waypoint Movement
+- ✓ Nodes
+- ✓ Links
+- ✓ Interfaces
+- ✓ Interface State
+- ✓ Delivery Blocking
+- ✓ IPv4 Addressing
+- ✓ IPv4 Subnet Derivation
 
-Near-term milestones should remain small and concrete, such as:
+Immediate upcoming milestones:
 
-- explicit nodes and links
-- rendering links from World state
-- link up/down state
-- delivery failure on a broken link
-- endpoint and router inspection
+- Connected Routes
+- Static Routes
+- Route Lookup
+- Packet Forwarding
+- CLI
+- RIP
+- OSPF
+- EIGRP
 
-Do not begin Cisco CLI, routing protocols, AI tutoring, utilities, economy, or broad city simulation systems until the required lower-level primitives exist.
+Do not begin AI tutoring, utilities, economy, or broad city simulation systems until the milestones above are complete. Routing protocols (RIP, OSPF, EIGRP) should not begin until Connected Routes, Static Routes, Route Lookup, and Packet Forwarding all exist — a routing protocol needs something to decide between and forward through first.
 
 ## Definition of Done
 
