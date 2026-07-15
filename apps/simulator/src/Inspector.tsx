@@ -7,7 +7,7 @@ import type {
   Node,
   Router,
 } from "@network-city/simulation-engine";
-import { describeEndpoint, formatIPv4Cidr } from "./deviceLabels";
+import { describeEndpoint, formatIPv4Cidr, subnetCompatibility, subnetDetails } from "./deviceLabels";
 
 export type Selection =
   | { kind: "building"; entity: Building }
@@ -44,6 +44,22 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function SubnetInfo({ iface }: { iface: NetworkInterface }) {
+  const subnet = subnetDetails(iface);
+
+  if (!subnet) {
+    return null;
+  }
+
+  return (
+    <>
+      <div style={{ color: "#9ca3af", fontSize: 12 }}>network: {subnet.network}</div>
+      <div style={{ color: "#9ca3af", fontSize: 12 }}>broadcast: {subnet.broadcast}</div>
+      <div style={{ color: "#9ca3af", fontSize: 12 }}>mask: {subnet.mask}</div>
+    </>
+  );
+}
+
 function InterfaceList({ interfaces, links }: { interfaces: NetworkInterface[]; links: Link[] }) {
   if (interfaces.length === 0) {
     return <div>None</div>;
@@ -64,6 +80,7 @@ function InterfaceList({ interfaces, links }: { interfaces: NetworkInterface[]; 
             <div>{iface.name}</div>
             <div style={{ color: "#9ca3af", fontSize: 12 }}>id: {iface.id}</div>
             <div style={{ color: "#9ca3af", fontSize: 12 }}>ipv4: {formatIPv4Cidr(iface)}</div>
+            <SubnetInfo iface={iface} />
             <div style={{ color: "#9ca3af", fontSize: 12 }}>
               admin: {iface.administrativeStatus} / oper: {iface.operationalStatus}
             </div>
@@ -178,6 +195,7 @@ export default function Inspector({ selection, links, onSetLinkStatus }: Inspect
       </Field>
       <Field label="status">{link.status}</Field>
       <Field label="cost">{link.cost}</Field>
+      <Field label="subnet compatibility">{subnetCompatibility(link)}</Field>
       {/* Temporary developer control for the Link Failure milestone; not a
           product feature, only exists so link status can be exercised
           before a CLI can set it. */}

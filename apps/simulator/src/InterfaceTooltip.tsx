@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Link, NetworkInterface } from "@network-city/simulation-engine";
-import { deviceName, describeEndpoint, formatIPv4Cidr } from "./deviceLabels";
+import { deviceName, describeEndpoint, formatIPv4Cidr, subnetDetails } from "./deviceLabels";
 
 interface InterfaceTooltipProps {
   iface: NetworkInterface;
@@ -31,6 +31,7 @@ export default function InterfaceTooltip({ iface, links, x, y }: InterfaceToolti
       ? connectedLink.endpointB
       : connectedLink.endpointA
     : undefined;
+  const subnet = subnetDetails(iface);
 
   return (
     <div style={{ ...tooltipStyle, left: x + 12, top: y + 12 }}>
@@ -39,6 +40,13 @@ export default function InterfaceTooltip({ iface, links, x, y }: InterfaceToolti
       </div>
       <div>id: {iface.id}</div>
       <div>ipv4: {formatIPv4Cidr(iface)}</div>
+      {subnet && (
+        <>
+          <div>network: {subnet.network}</div>
+          <div>broadcast: {subnet.broadcast}</div>
+          <div>mask: {subnet.mask}</div>
+        </>
+      )}
       <div>
         admin: {iface.administrativeStatus} / oper: {iface.operationalStatus}
       </div>
