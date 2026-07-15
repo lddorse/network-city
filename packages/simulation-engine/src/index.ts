@@ -9,5 +9,6 @@ export * from "./entities/Link";
 export * from "./entities/Vehicle";
 export * from "./systems/System";
 export * from "./systems/MovementSystem";
+export * from "./systems/InterfaceStatusSystem";
 export * from "./movement/Movement";
 export * from "./events/EventEmitter";

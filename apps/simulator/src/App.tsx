@@ -42,6 +42,12 @@ const INTERFACE_LED_COLOR_DEGRADED = 0xeab308;
 const INTERFACE_LED_COLOR_DOWN = 0xef4444;
 const INTERFACE_LED_COLOR_UNCONNECTED = 0x9ca3af;
 
+function drawInterfaceLed(graphic: Graphics, color: number): void {
+  graphic.clear();
+  graphic.circle(0, 0, INTERFACE_LED_RADIUS);
+  graphic.fill(color);
+}
+
 // Connectivity takes priority: an unplugged interface reads as gray
 // regardless of what its admin/oper flags happen to say.
 function interfaceStatusColor(iface: NetworkInterface, links: Link[]): number {
@@ -143,6 +149,7 @@ export default function App() {
   const buildingGraphicsRef = useRef<Map<string, Graphics>>(new Map());
   const routerGraphicsRef = useRef<Map<string, Graphics>>(new Map());
   const linkGraphicsRef = useRef<Map<string, Graphics>>(new Map());
+  const interfaceLedGraphicsRef = useRef<Map<string, Graphics>>(new Map());
   const [selection, setSelection] = useState<Selection | undefined>(undefined);
   // Mirrors world.links for the Inspector prop below; render must not read
   // worldRef.current directly, so this is set once when World is created.
@@ -286,6 +293,8 @@ export default function App() {
         app.stage.addChild(label);
       }
 
+      const interfaceLedGraphics = new Map<string, Graphics>();
+
       // A compact, hoverable label per link endpoint, positioned away from
       // its owning node along the link's own direction (so it reads well on
       // both the horizontal R1<->R2 link and the diagonal building links).
@@ -328,14 +337,13 @@ export default function App() {
         });
 
         // Sits outside the label background so it never resizes it; purely
-        // visual, not part of the (unchanged) hover hit area below.
+        // visual, not part of the (unchanged) hover hit area below. Drawn in
+        // its own local space (0, 0) so redrawing it on status changes never
+        // needs to know the label's offset math.
         const led = new Graphics();
-        led.circle(
-          -backgroundWidth / 2 - INTERFACE_LED_GAP - INTERFACE_LED_RADIUS,
-          0,
-          INTERFACE_LED_RADIUS
-        );
-        led.fill(interfaceStatusColor(iface, world.links));
+        led.position.set(-backgroundWidth / 2 - INTERFACE_LED_GAP - INTERFACE_LED_RADIUS, 0);
+        drawInterfaceLed(led, interfaceStatusColor(iface, world.links));
+        interfaceLedGraphics.set(iface.id, led);
 
         const container = new Container();
         container.position.set(position.x, position.y);
@@ -369,6 +377,8 @@ export default function App() {
         addInterfaceLabel(link.endpointB, offsetPosition(pointB, pointA, INTERFACE_LABEL_OFFSET));
       }
 
+      interfaceLedGraphicsRef.current = interfaceLedGraphics;
+
       const vehicleGraphics = new Map<string, Graphics>();
 
       for (const vehicle of world.vehicles) {
@@ -386,6 +396,16 @@ export default function App() {
 
       const handleTick = (ticker: Ticker) => {
         world.update(ticker.deltaMS / 1000);
+
+        for (const link of world.links) {
+          for (const iface of [link.endpointA, link.endpointB]) {
+            const graphic = interfaceLedGraphicsRef.current.get(iface.id);
+
+            if (graphic) {
+              drawInterfaceLed(graphic, interfaceStatusColor(iface, world.links));
+            }
+          }
+        }
 
         for (const vehicle of world.vehicles) {
           vehicleGraphics.get(vehicle.id)?.position.set(vehicle.position.x, vehicle.position.y);
