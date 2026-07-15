@@ -309,11 +309,16 @@ export default function App() {
       // its owning node along the link's own direction (so it reads well on
       // both the horizontal R1<->R2 link and the diagonal building links).
       const addInterfaceLabel = (iface: NetworkInterface, position: Vector2) => {
+        // A second line is only added when an address is actually assigned,
+        // so an unconfigured interface keeps today's single-line label.
+        const labelText = iface.ipv4 ? `${iface.name}\n${iface.ipv4.toCidr()}` : iface.name;
+
         const text = new Text({
-          text: iface.name,
+          text: labelText,
           style: {
             fill: INTERFACE_LABEL_COLOR,
             fontSize: INTERFACE_LABEL_FONT_SIZE,
+            align: "center",
           },
         });
         text.anchor.set(0.5);

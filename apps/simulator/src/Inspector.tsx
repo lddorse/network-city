@@ -7,7 +7,7 @@ import type {
   Node,
   Router,
 } from "@network-city/simulation-engine";
-import { describeEndpoint } from "./deviceLabels";
+import { describeEndpoint, formatIPv4Cidr } from "./deviceLabels";
 
 export type Selection =
   | { kind: "building"; entity: Building }
@@ -63,6 +63,7 @@ function InterfaceList({ interfaces, links }: { interfaces: NetworkInterface[]; 
           >
             <div>{iface.name}</div>
             <div style={{ color: "#9ca3af", fontSize: 12 }}>id: {iface.id}</div>
+            <div style={{ color: "#9ca3af", fontSize: 12 }}>ipv4: {formatIPv4Cidr(iface)}</div>
             <div style={{ color: "#9ca3af", fontSize: 12 }}>
               admin: {iface.administrativeStatus} / oper: {iface.operationalStatus}
             </div>
@@ -72,6 +73,15 @@ function InterfaceList({ interfaces, links }: { interfaces: NetworkInterface[]; 
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function EndpointDetail({ iface }: { iface: NetworkInterface }) {
+  return (
+    <div>
+      <div>{describeEndpoint(iface)}</div>
+      <div style={{ color: "#9ca3af", fontSize: 12 }}>{formatIPv4Cidr(iface)}</div>
     </div>
   );
 }
@@ -160,8 +170,12 @@ export default function Inspector({ selection, links, onSetLinkStatus }: Inspect
       <h2 style={{ marginTop: 0 }}>{link.id}</h2>
       <Field label="id">{link.id}</Field>
       <Field label="type">Link</Field>
-      <Field label="from">{describeEndpoint(link.endpointA)}</Field>
-      <Field label="to">{describeEndpoint(link.endpointB)}</Field>
+      <Field label="from">
+        <EndpointDetail iface={link.endpointA} />
+      </Field>
+      <Field label="to">
+        <EndpointDetail iface={link.endpointB} />
+      </Field>
       <Field label="status">{link.status}</Field>
       <Field label="cost">{link.cost}</Field>
       {/* Temporary developer control for the Link Failure milestone; not a

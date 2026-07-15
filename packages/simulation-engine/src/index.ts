@@ -6,6 +6,7 @@ export * from "./entities/Building";
 export * from "./entities/Router";
 export * from "./entities/NetworkInterface";
 export * from "./entities/Link";
+export * from "./network/IPv4Address";
 export * from "./entities/Vehicle";
 export * from "./systems/System";
 export * from "./systems/MovementSystem";

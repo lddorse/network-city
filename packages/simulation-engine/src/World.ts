@@ -7,6 +7,7 @@ import { createMovement } from "./movement/Movement.ts";
 import { MovementSystem } from "./systems/MovementSystem.ts";
 import { InterfaceStatusSystem } from "./systems/InterfaceStatusSystem.ts";
 import { DeliverySystem } from "./systems/DeliverySystem.ts";
+import { IPv4Address } from "./network/IPv4Address.ts";
 
 const DELIVERY_VEHICLE_SPEED = 120; // world units per second
 
@@ -34,17 +35,23 @@ export class World {
     const [r1, r2] = this.routers;
 
     const houseEth0 = new NetworkInterface("house-eth0", "eth0", house);
+    houseEth0.ipv4 = new IPv4Address("192.168.1.10", 24);
     house.interfaces.push(houseEth0);
 
     const hospitalEth0 = new NetworkInterface("hospital-eth0", "eth0", hospital);
+    hospitalEth0.ipv4 = new IPv4Address("192.168.2.10", 24);
     hospital.interfaces.push(hospitalEth0);
 
     const r1Gi00 = new NetworkInterface("r1-gi0/0", "Gi0/0", r1);
+    r1Gi00.ipv4 = new IPv4Address("192.168.1.1", 24);
     const r1Gi01 = new NetworkInterface("r1-gi0/1", "Gi0/1", r1);
+    r1Gi01.ipv4 = new IPv4Address("10.0.0.1", 30);
     r1.interfaces.push(r1Gi00, r1Gi01);
 
     const r2Gi00 = new NetworkInterface("r2-gi0/0", "Gi0/0", r2);
+    r2Gi00.ipv4 = new IPv4Address("10.0.0.2", 30);
     const r2Gi01 = new NetworkInterface("r2-gi0/1", "Gi0/1", r2);
+    r2Gi01.ipv4 = new IPv4Address("192.168.2.1", 24);
     r2.interfaces.push(r2Gi00, r2Gi01);
 
     // House.eth0 -> R1.Gi0/0 -> R1.Gi0/1 -> R2.Gi0/0 -> R2.Gi0/1 -> Hospital.eth0

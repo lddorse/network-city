@@ -18,3 +18,7 @@ export function deviceName(node: Node): string {
 export function describeEndpoint(iface: NetworkInterface): string {
   return `${deviceName(iface.owner)} ${iface.name}`;
 }
+
+export function formatIPv4Cidr(iface: NetworkInterface): string {
+  return iface.ipv4 ? iface.ipv4.toCidr() : "Unassigned";
+}

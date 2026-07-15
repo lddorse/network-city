@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Link, NetworkInterface } from "@network-city/simulation-engine";
-import { deviceName, describeEndpoint } from "./deviceLabels";
+import { deviceName, describeEndpoint, formatIPv4Cidr } from "./deviceLabels";
 
 interface InterfaceTooltipProps {
   iface: NetworkInterface;
@@ -38,6 +38,7 @@ export default function InterfaceTooltip({ iface, links, x, y }: InterfaceToolti
         <strong>{deviceName(iface.owner)}</strong> {iface.name}
       </div>
       <div>id: {iface.id}</div>
+      <div>ipv4: {formatIPv4Cidr(iface)}</div>
       <div>
         admin: {iface.administrativeStatus} / oper: {iface.operationalStatus}
       </div>
