@@ -1,11 +1,12 @@
-import { Building } from "./entities/Building";
-import { Router } from "./entities/Router";
-import { Vehicle } from "./entities/Vehicle";
-import { Link } from "./entities/Link";
-import { NetworkInterface } from "./entities/NetworkInterface";
-import { createMovement } from "./movement/Movement";
-import { MovementSystem } from "./systems/MovementSystem";
-import { InterfaceStatusSystem } from "./systems/InterfaceStatusSystem";
+import { Building } from "./entities/Building.ts";
+import { Router } from "./entities/Router.ts";
+import { Vehicle } from "./entities/Vehicle.ts";
+import { Link } from "./entities/Link.ts";
+import { NetworkInterface } from "./entities/NetworkInterface.ts";
+import { createMovement } from "./movement/Movement.ts";
+import { MovementSystem } from "./systems/MovementSystem.ts";
+import { InterfaceStatusSystem } from "./systems/InterfaceStatusSystem.ts";
+import { DeliverySystem } from "./systems/DeliverySystem.ts";
 
 const DELIVERY_VEHICLE_SPEED = 120; // world units per second
 
@@ -15,6 +16,7 @@ export class World {
   links: Link[];
   vehicles: Vehicle[];
   movementSystem: MovementSystem;
+  deliverySystem: DeliverySystem;
   interfaceStatusSystem: InterfaceStatusSystem;
 
   constructor() {
@@ -57,6 +59,7 @@ export class World {
     ];
 
     this.movementSystem = new MovementSystem(this.vehicles);
+    this.deliverySystem = new DeliverySystem(this.vehicles, this.movementSystem);
     this.interfaceStatusSystem = new InterfaceStatusSystem([...this.buildings, ...this.routers], this.links);
     // Resolve derived status once up front so it's correct before the first tick.
     this.interfaceStatusSystem.recompute();
@@ -64,6 +67,6 @@ export class World {
 
   update(delta: number): void {
     this.interfaceStatusSystem.update(delta);
-    this.movementSystem.update(delta);
+    this.deliverySystem.update(delta);
   }
 }

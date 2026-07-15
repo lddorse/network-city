@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Application, Container, Graphics, Rectangle, Text, type Ticker } from "pixi.js";
 import { World } from "@network-city/simulation-engine";
-import type { Building, Link, NetworkInterface, Router, Vector2 } from "@network-city/simulation-engine";
+import type {
+  Building,
+  Link,
+  LinkStatus,
+  NetworkInterface,
+  Router,
+  Vector2,
+} from "@network-city/simulation-engine";
 import Inspector, { type Selection } from "./Inspector";
 import InterfaceTooltip from "./InterfaceTooltip";
 
@@ -11,6 +18,7 @@ const WORLD_HEIGHT = 640;
 const ROUTER_RADIUS = 34;
 const ROUTER_COLOR = 0x345995;
 const LINK_COLOR = 0x82d8ff;
+const LINK_COLOR_DOWN = 0x8a6a6a; // muted gray/red, distinct from the brighter LED down/degraded colors
 const LINK_WIDTH = 6;
 
 const VEHICLE_RADIUS = 10;
@@ -130,11 +138,12 @@ function offsetPosition(from: Vector2, towards: Vector2, distance: number): Vect
 function drawLink(graphic: Graphics, link: Link, selected: boolean): void {
   const from = link.endpointA.owner.connectionPoint;
   const to = link.endpointB.owner.connectionPoint;
+  const color = link.status === "down" ? LINK_COLOR_DOWN : LINK_COLOR;
 
   graphic.clear();
   graphic.moveTo(from.x, from.y);
   graphic.lineTo(to.x, to.y);
-  graphic.stroke({ width: LINK_WIDTH, color: LINK_COLOR });
+  graphic.stroke({ width: LINK_WIDTH, color });
 
   if (selected) {
     graphic.moveTo(from.x, from.y);
@@ -173,6 +182,7 @@ export default function App() {
     let cancelled = false;
     let initialized = false;
     let unsubscribeArrival: (() => void) | undefined;
+    let unsubscribeBlocked: (() => void) | undefined;
 
     const startPixi = async () => {
       await app.init({
@@ -394,6 +404,14 @@ export default function App() {
         console.log(`Delivery arrived: ${vehicleId}`);
       });
 
+      unsubscribeBlocked = world.deliverySystem.onBlocked.on(
+        ({ vehicleId, blockedLinkId, currentNodeId }) => {
+          console.log(
+            `Delivery blocked: ${vehicleId} at ${currentNodeId}, link ${blockedLinkId} is down`
+          );
+        }
+      );
+
       const handleTick = (ticker: Ticker) => {
         world.update(ticker.deltaMS / 1000);
 
@@ -422,6 +440,7 @@ export default function App() {
     return () => {
       cancelled = true;
       unsubscribeArrival?.();
+      unsubscribeBlocked?.();
 
       if (!initialized) {
         return;
@@ -473,6 +492,17 @@ export default function App() {
     }
   }, [selection]);
 
+  // Temporary developer control (see Inspector's Link status buttons) for
+  // exercising link failure before a CLI exists. Mutates the World directly,
+  // then bumps selection so Inspector's text re-renders; the link's line
+  // color picks up the change via the effect above.
+  const handleSetLinkStatus = (link: Link, status: LinkStatus) => {
+    link.status = status;
+    setSelection((current) =>
+      current?.kind === "link" && current.entity === link ? { ...current } : current
+    );
+  };
+
   return (
     <main
       style={{
@@ -485,7 +515,7 @@ export default function App() {
       <h1 style={{ color: "white", marginTop: 0 }}>Network City</h1>
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
         <div ref={containerRef} />
-        <Inspector selection={selection} links={links} />
+        <Inspector selection={selection} links={links} onSetLinkStatus={handleSetLinkStatus} />
       </div>
       {hover && <InterfaceTooltip iface={hover.iface} links={links} x={hover.x} y={hover.y} />}
     </main>

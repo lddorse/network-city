@@ -1,4 +1,4 @@
-import { Entity } from "./Entity";
+import { Entity } from "./Entity.ts";
 import type { Vector2 } from "./Entity";
 import type { NetworkInterface } from "./NetworkInterface";
 

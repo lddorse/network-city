@@ -1,4 +1,4 @@
-import { Entity } from "./Entity";
+import { Entity } from "./Entity.ts";
 import type { Movement } from "../movement/Movement";
 
 export class Vehicle extends Entity {

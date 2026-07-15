@@ -1,4 +1,4 @@
-import { Node } from "./Node";
+import { Node } from "./Node.ts";
 import type { Vector2 } from "./Entity";
 
 // position is the top-left corner of the footprint (unlike Router, whose

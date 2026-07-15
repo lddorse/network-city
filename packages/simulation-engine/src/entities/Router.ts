@@ -1,4 +1,4 @@
-import { Node } from "./Node";
+import { Node } from "./Node.ts";
 
 export class Router extends Node {
   hostname: string;

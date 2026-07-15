@@ -4,8 +4,14 @@ import type { Link } from "../entities/Link";
 export interface Movement {
   from: Vector2;
   to: Vector2;
+  // The link being crossed for the current from->to segment. Its status is
+  // what a traversal layer (not this module) checks before allowing entry.
+  link: Link;
   // Waypoints after "to", in order; empty once "to" is the final destination.
   remainingWaypoints: Vector2[];
+  // Links for each remaining waypoint, in the same order as
+  // remainingWaypoints; empty once "to" is the final destination.
+  remainingLinks: Link[];
   speed: number; // world units per second
   progress: number; // 0 at "from", 1 at "to", for the current from->to segment
 }
@@ -24,7 +30,7 @@ export function createMovement(links: Link[], speed: number): Movement {
   const to = firstLink.endpointB.owner.connectionPoint;
   const remainingWaypoints = restLinks.map((link) => link.endpointB.owner.connectionPoint);
 
-  return { from, to, remainingWaypoints, speed, progress: 0 };
+  return { from, to, link: firstLink, remainingWaypoints, remainingLinks: restLinks, speed, progress: 0 };
 }
 
 export function movementDistance(movement: Movement): number {

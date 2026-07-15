@@ -1,11 +1,11 @@
 import type { System } from "./System";
-import { EventEmitter } from "../events/EventEmitter";
+import { EventEmitter } from "../events/EventEmitter.ts";
 import type { Vehicle } from "../entities/Vehicle";
 import {
   isMovementComplete,
   movementDistance,
   positionAlongMovement,
-} from "../movement/Movement";
+} from "../movement/Movement.ts";
 
 export interface ArrivalEvent {
   vehicleId: string;
@@ -30,7 +30,12 @@ export class MovementSystem implements System {
     }
   }
 
-  private advance(vehicle: Vehicle, delta: number): void {
+  // Public so a traversal/gating layer (e.g. DeliverySystem) can advance one
+  // vehicle at a time with a delta it has already clamped to a segment
+  // boundary, instead of this system deciding whether a link may be
+  // entered. This method itself remains pure kinematics: it has no opinion
+  // on link status.
+  advance(vehicle: Vehicle, delta: number): void {
     const { movement } = vehicle;
 
     if (isMovementComplete(movement)) {
@@ -64,10 +69,13 @@ export class MovementSystem implements System {
         return;
       }
 
-      const [nextTo, ...rest] = movement.remainingWaypoints;
+      const [nextTo, ...restWaypoints] = movement.remainingWaypoints;
+      const [nextLink, ...restLinks] = movement.remainingLinks;
       movement.from = movement.to;
       movement.to = nextTo;
-      movement.remainingWaypoints = rest;
+      movement.link = nextLink;
+      movement.remainingWaypoints = restWaypoints;
+      movement.remainingLinks = restLinks;
       movement.progress = 0;
     }
 

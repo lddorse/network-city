@@ -1,5 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { Building, Link, NetworkInterface, Node, Router } from "@network-city/simulation-engine";
+import type {
+  Building,
+  Link,
+  LinkStatus,
+  NetworkInterface,
+  Node,
+  Router,
+} from "@network-city/simulation-engine";
 import { describeEndpoint } from "./deviceLabels";
 
 export type Selection =
@@ -10,6 +17,7 @@ export type Selection =
 interface InspectorProps {
   selection: Selection | undefined;
   links: Link[];
+  onSetLinkStatus: (link: Link, status: LinkStatus) => void;
 }
 
 const panelStyle: CSSProperties = {
@@ -86,7 +94,17 @@ function ConnectedLinks({ node, links }: { node: Node; links: Link[] }) {
   );
 }
 
-export default function Inspector({ selection, links }: InspectorProps) {
+const devButtonStyle = (active: boolean): CSSProperties => ({
+  padding: "4px 10px",
+  fontSize: 12,
+  borderRadius: 4,
+  border: "1px solid #374151",
+  background: active ? "#374151" : "#111827",
+  color: active ? "#6b7280" : "white",
+  cursor: active ? "default" : "pointer",
+});
+
+export default function Inspector({ selection, links, onSetLinkStatus }: InspectorProps) {
   if (!selection) {
     return (
       <aside style={panelStyle}>
@@ -146,6 +164,29 @@ export default function Inspector({ selection, links }: InspectorProps) {
       <Field label="to">{describeEndpoint(link.endpointB)}</Field>
       <Field label="status">{link.status}</Field>
       <Field label="cost">{link.cost}</Field>
+      {/* Temporary developer control for the Link Failure milestone; not a
+          product feature, only exists so link status can be exercised
+          before a CLI can set it. */}
+      <Field label="dev: status">
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            style={devButtonStyle(link.status === "up")}
+            disabled={link.status === "up"}
+            onClick={() => onSetLinkStatus(link, "up")}
+          >
+            Up
+          </button>
+          <button
+            type="button"
+            style={devButtonStyle(link.status === "down")}
+            disabled={link.status === "down"}
+            onClick={() => onSetLinkStatus(link, "down")}
+          >
+            Down
+          </button>
+        </div>
+      </Field>
     </aside>
   );
 }
