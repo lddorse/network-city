@@ -1,0 +1,47 @@
+# DevRel configuration for Network City.
+#
+# This file holds human-owned facts and voice guidelines that
+# scripts/devrel/generate-drafts.js reads when turning an approved milestone
+# handoff (devrel/inbox/*.yml) into draft public content.
+#
+# This file must never contain secrets, tokens, API keys, or credentials.
+# It is read by local scripts only and is safe to commit.
+
+project_name: "Network City"
+
+tagline: "Learn Cisco networking by running a city, not memorizing commands."
+
+repository_url: "https://github.com/lddorse/network-city"
+
+# TODO (human): replace with a real portfolio/personal site link before
+# publishing anything generated from this config. Left as an explicit
+# placeholder rather than guessed, per the "no invented facts" policy.
+portfolio_url: "https://example.com/replace-with-your-portfolio-url"
+
+target_audiences:
+  - "Networking students and CCNA learners"
+  - "Developers curious about simulation/game architecture"
+  - "Recruiters and hiring managers reviewing side projects"
+
+tone_guidelines:
+  - "Plain, concrete, first-person or team voice - no hype adjectives."
+  - "Describe what was built and what it does, not how impressive it is."
+  - "Prefer specific commands, test counts, and observable behavior over adjectives."
+  - "It is fine to say a milestone is small and scoped - that is a feature of this project's process, not a weakness."
+
+# Things a human reviewer should check for and remove before publishing any
+# generated draft. generate-drafts.js does not enforce these automatically -
+# it only avoids adding new claims beyond what the handoff states.
+claims_to_avoid:
+  - "Do not claim production-readiness."
+  - "Do not claim performance numbers that were not actually measured."
+  - "Do not claim the project is used by real networks or real users."
+  - "Do not claim a milestone is committed, merged, or pushed unless the handoff explicitly says so."
+  - "Do not claim test coverage or scope beyond the tests actually listed in the handoff."
+
+# Where scripts/devrel/generate-drafts.js writes generated Markdown, keyed by
+# draft type. Paths are relative to the repository root.
+output_folders:
+  development_log: "devrel/development-logs"
+  linkedin: "devrel/linkedin"
+  release_notes: "devrel/release-notes"

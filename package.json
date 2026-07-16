@@ -4,5 +4,12 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "devrel:validate": "node scripts/devrel/validate-handoff.js",
+    "devrel:generate": "node scripts/devrel/generate-drafts.js"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.0"
+  }
 }

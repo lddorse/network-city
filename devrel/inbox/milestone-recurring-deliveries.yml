@@ -1,0 +1,62 @@
+# Sample milestone handoff for the recurring-delivery / interface-shutdown
+# milestone. Every fact below is drawn from the actual implementation and
+# verification results reported for that milestone - nothing here is
+# invented. See devrel/templates/milestone.yml for the field-by-field schema.
+
+milestone_id: "recurring-deliveries-and-interface-shutdown"
+
+date: "2026-07-16"
+
+title: "Recurring Delivery Traffic and Interface Administrative Shutdown"
+
+status: "committed-not-pushed"
+
+summary: "Delivery vehicles now spawn on a repeating 5-second interval instead of a single one-time vehicle, and IOS 'shutdown'/'no shutdown' commands now actually block and resume delivery traffic through the interface they're run on."
+
+implemented_features:
+  - "Recurring delivery vehicle spawning every 5 simulated seconds via a new DeliverySpawnSystem in the simulation engine"
+  - "Unique sequential delivery vehicle ids (delivery-1, delivery-2, delivery-3, ...)"
+  - "Automatic removal of a delivery vehicle from the active vehicle list once it arrives, so the vehicle list does not grow without bound during normal (non-blocked) operation"
+  - "IOS CLI 'shutdown' and 'no shutdown' commands in interface configuration mode, which set NetworkInterface.administrativeStatus"
+  - "DeliverySystem now also checks each link endpoint's operationalStatus in addition to link.status, so an administratively shut down interface blocks delivery vehicles from entering that link"
+
+visible_user_facing_changes:
+  - "A new delivery vehicle appears roughly every 5 seconds and follows the House -> R1 -> R2 -> Hospital route"
+  - "Multiple delivery vehicles can be on screen and in transit at the same time"
+  - "Typing 'shutdown' on a router interface in the CLI now visibly stops delivery vehicles from crossing that interface's link"
+  - "Typing 'no shutdown' lets queued-up delivery vehicles resume and continue their route"
+
+commands_added:
+  - "shutdown"
+  - "no shutdown"
+
+tests:
+  - command: "npm test (packages/simulation-engine)"
+    result: "39 passed"
+  - command: "npm test (packages/ios-cli)"
+    result: "31 passed"
+  - command: "npm run build (packages/simulation-engine)"
+    result: "clean (tsc --noEmit, no errors)"
+  - command: "npm run build (packages/ios-cli)"
+    result: "clean (tsc --noEmit, no errors)"
+  - command: "npm run lint (apps/simulator)"
+    result: "clean (eslint ., no errors)"
+  - command: "npm run build (apps/simulator)"
+    result: "clean (tsc -b && vite build succeeded)"
+
+approved_technical_decisions:
+  - "Keep all spawn-interval scheduling and timing logic inside the simulation engine (DeliverySpawnSystem), driven by World.update(delta), rather than using setInterval or a browser timer in React"
+  - "Gate delivery traversal on both link.status and each endpoint interface's operationalStatus, rather than replacing link.status, to preserve existing physical-link-failure behavior while adding interface-shutdown blocking"
+  - "Remove arrived vehicles from the shared vehicles array only after each tick's systems finish iterating over it, to avoid mutating the array mid-iteration"
+
+known_limitations:
+  - "Vehicles still accumulate without bound while a link/interface stays down indefinitely (a congestion queue at the blocked node) - only steady-state, non-blocked operation is guaranteed to stay bounded"
+  - "Movement speed (120 world units/second) was kept as-is from the prior milestone rather than tuned for readability with multiple simultaneous vehicles on screen"
+  - "No new UI controls were added; shutdown/no shutdown are CLI-only, and delivery vehicles are rendered as plain colored dots, not sprites"
+
+screenshots: []
+
+videos: []
+
+commits_or_prs:
+  - "d3f859b82b2d8dbd4fe5ad85f15131058322f565 - Add recurring deliveries and interface shutdown control (committed locally on main, not yet pushed to origin, per git status)"

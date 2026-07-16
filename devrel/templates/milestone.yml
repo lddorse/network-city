@@ -1,0 +1,79 @@
+# Milestone handoff template.
+#
+# Copy this file into devrel/inbox/ as milestone-<slug>.yml and fill it in
+# with only verified facts about a completed engineering milestone - things
+# you can check against `git log`/`git status` and real test/build output,
+# not aspirational or planned work.
+#
+# Once filled in, run:
+#   npm run devrel:validate -- devrel/inbox/milestone-<slug>.yml
+#   npm run devrel:generate -- devrel/inbox/milestone-<slug>.yml
+#
+# validate-handoff.js checks required fields, basic types, and that every
+# screenshots/videos path actually exists. generate-drafts.js only turns
+# what's written here into draft Markdown - it never adds new claims.
+
+# Short, stable, filename-safe identifier for this milestone (letters,
+# numbers, hyphens). Used to name every generated draft file.
+milestone_id: "example-milestone-id"
+
+# ISO date (YYYY-MM-DD) the handoff was written.
+date: "2026-01-01"
+
+# Human-readable milestone title.
+title: "Example Milestone Title"
+
+# Free-form status string describing this handoff's state, e.g. "draft",
+# "approved", "committed-not-pushed", "pushed". Whatever you write here is
+# reproduced as-is in generated drafts - do not write "committed" unless
+# `git log` actually shows the commit.
+status: "draft"
+
+# 1-3 sentence plain-language summary of what the milestone does.
+summary: "Describe what this milestone adds, in plain language."
+
+# What was actually implemented, as short factual bullet points.
+implemented_features:
+  - "Describe one implemented feature per line."
+
+# Changes a user or player would actually notice, distinct from internal
+# implementation details. Can be empty if this milestone is purely internal.
+visible_user_facing_changes:
+  - "Describe one observable change per line."
+
+# Any new CLI/IOS commands this milestone introduced. Can be empty.
+commands_added:
+  - "example command"
+
+# Real commands that were actually run, and their real result. `result`
+# should be a short factual string, e.g. "31 passed", "clean", "0 errors".
+# Must contain at least one entry - a milestone handoff without any test
+# evidence isn't ready to leave engineering yet.
+tests:
+  - command: "npm test"
+    result: "0 passed"
+
+# Technical decisions a human already approved during engineering review,
+# stated as facts. Can be empty if nothing notable was decided.
+approved_technical_decisions:
+  - "Describe one approved decision per line."
+
+# Anything intentionally not done, deferred, or a known rough edge. These
+# must remain visible in every generated draft unless a human explicitly
+# edits them out afterward - generate-drafts.js will not drop them.
+known_limitations:
+  - "Describe one known limitation per line."
+
+# Paths to real screenshot files, relative to the repository root.
+# Use an empty list if none exist yet - do not invent paths;
+# validate-handoff.js will fail if a listed path doesn't exist.
+screenshots: []
+
+# Paths to real video files, relative to the repository root.
+# Use an empty list if none exist yet - do not invent paths;
+# validate-handoff.js will fail if a listed path doesn't exist.
+videos: []
+
+# Real commit hashes, commit subjects, or PR URLs. Leave empty until the
+# milestone is actually committed/merged - do not claim this in advance.
+commits_or_prs: []
