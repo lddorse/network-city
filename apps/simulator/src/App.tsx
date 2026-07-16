@@ -11,6 +11,7 @@ import type {
 } from "@network-city/simulation-engine";
 import Inspector, { type Selection } from "./Inspector";
 import InterfaceTooltip from "./InterfaceTooltip";
+import Terminal from "./Terminal";
 
 const WORLD_WIDTH = 960;
 const WORLD_HEIGHT = 640;
@@ -551,6 +552,8 @@ export default function App() {
     );
   };
 
+  const selectedRouter = selection?.kind === "router" ? selection.entity : undefined;
+
   return (
     <main
       style={{
@@ -564,6 +567,7 @@ export default function App() {
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
         <div ref={containerRef} />
         <Inspector selection={selection} links={links} onSetLinkStatus={handleSetLinkStatus} />
+        <Terminal router={selectedRouter} />
       </div>
       {hover && <InterfaceTooltip iface={hover.iface} links={links} x={hover.x} y={hover.y} />}
     </main>

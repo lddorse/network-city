@@ -1,0 +1,19 @@
+{
+  "name": "@network-city/ios-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@network-city/simulation-engine": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "typescript": "~6.0.2"
+  }
+}
