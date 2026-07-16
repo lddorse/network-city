@@ -145,15 +145,59 @@ test("config-only command typed in privileged exec is invalid", () => {
   assert.equal(shell.mode, "privileged");
 });
 
-test("no configuration commands are accepted in config-if mode", () => {
+test("unimplemented configuration commands are rejected in config-if mode", () => {
   const shell = new IosShell(routerWithInterfaces());
   shell.execute("enable");
   shell.execute("configure terminal");
   shell.execute("interface Gi0/0");
 
-  const output = shell.execute("no shutdown");
+  const output = shell.execute("ip address 10.0.0.1 255.255.255.0");
   assert.deepEqual(output, ["% Invalid input detected at '^' marker."]);
   assert.equal(shell.mode, "config-if");
+});
+
+test("shutdown sets the selected interface's administrativeStatus to down", () => {
+  const router = routerWithInterfaces();
+  const shell = new IosShell(router);
+  shell.execute("enable");
+  shell.execute("configure terminal");
+  shell.execute("interface Gi0/0");
+
+  const output = shell.execute("shutdown");
+  assert.deepEqual(output, []);
+  assert.equal(router.interfaces[0].administrativeStatus, "down");
+});
+
+test("no shutdown restores the selected interface's administrativeStatus to up", () => {
+  const router = routerWithInterfaces();
+  const shell = new IosShell(router);
+  shell.execute("enable");
+  shell.execute("configure terminal");
+  shell.execute("interface Gi0/0");
+  shell.execute("shutdown");
+
+  const output = shell.execute("no shutdown");
+  assert.deepEqual(output, []);
+  assert.equal(router.interfaces[0].administrativeStatus, "up");
+});
+
+test("shutdown outside interface configuration mode is invalid and changes nothing", () => {
+  const router = routerWithInterfaces();
+
+  const userShell = new IosShell(router);
+  assert.deepEqual(userShell.execute("shutdown"), ["% Invalid input detected at '^' marker."]);
+
+  const privilegedShell = new IosShell(router);
+  privilegedShell.execute("enable");
+  assert.deepEqual(privilegedShell.execute("shutdown"), ["% Invalid input detected at '^' marker."]);
+
+  const configShell = new IosShell(router);
+  configShell.execute("enable");
+  configShell.execute("configure terminal");
+  assert.deepEqual(configShell.execute("shutdown"), ["% Invalid input detected at '^' marker."]);
+  assert.deepEqual(configShell.execute("no shutdown"), ["% Invalid input detected at '^' marker."]);
+
+  assert.equal(router.interfaces[0].administrativeStatus, "up");
 });
 
 test("blank input produces no output and is not recorded in history", () => {

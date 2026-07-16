@@ -14,6 +14,7 @@ export * from "./systems/System.ts";
 export * from "./systems/MovementSystem.ts";
 export * from "./systems/InterfaceStatusSystem.ts";
 export * from "./systems/DeliverySystem.ts";
+export * from "./systems/DeliverySpawnSystem.ts";
 export * from "./systems/RoutingTableSystem.ts";
 export * from "./movement/Movement.ts";
 export * from "./events/EventEmitter.ts";

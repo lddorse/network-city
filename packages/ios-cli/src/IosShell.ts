@@ -170,6 +170,25 @@ export class IosShell {
           return [];
         },
       },
+      {
+        canonical: ["shutdown"],
+        aliases: [],
+        // administrativeStatus is the only thing the CLI touches; operationalStatus,
+        // routes, delivery, and rendering all follow from it through the existing
+        // engine systems on their next tick.
+        run: () => {
+          this.currentInterface!.administrativeStatus = "down";
+          return [];
+        },
+      },
+      {
+        canonical: ["no", "shutdown"],
+        aliases: [],
+        run: () => {
+          this.currentInterface!.administrativeStatus = "up";
+          return [];
+        },
+      },
     ];
 
     return runCommandTable(tokens, commands, INVALID_INPUT, INCOMPLETE_COMMAND);

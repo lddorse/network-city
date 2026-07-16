@@ -469,8 +469,27 @@ export default function App() {
           }
         }
 
+        const activeVehicleIds = new Set(world.vehicles.map((vehicle) => vehicle.id));
+
+        for (const [vehicleId, graphic] of vehicleGraphics) {
+          if (!activeVehicleIds.has(vehicleId)) {
+            graphic.destroy();
+            vehicleGraphics.delete(vehicleId);
+          }
+        }
+
         for (const vehicle of world.vehicles) {
-          vehicleGraphics.get(vehicle.id)?.position.set(vehicle.position.x, vehicle.position.y);
+          let graphic = vehicleGraphics.get(vehicle.id);
+
+          if (!graphic) {
+            graphic = new Graphics();
+            graphic.circle(0, 0, VEHICLE_RADIUS);
+            graphic.fill(VEHICLE_COLOR);
+            app.stage.addChild(graphic);
+            vehicleGraphics.set(vehicle.id, graphic);
+          }
+
+          graphic.position.set(vehicle.position.x, vehicle.position.y);
         }
       };
 

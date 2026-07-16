@@ -3,14 +3,15 @@ import { Router } from "./entities/Router.ts";
 import { Vehicle } from "./entities/Vehicle.ts";
 import { Link } from "./entities/Link.ts";
 import { NetworkInterface } from "./entities/NetworkInterface.ts";
-import { createMovement } from "./movement/Movement.ts";
 import { MovementSystem } from "./systems/MovementSystem.ts";
 import { InterfaceStatusSystem } from "./systems/InterfaceStatusSystem.ts";
 import { DeliverySystem } from "./systems/DeliverySystem.ts";
+import { DeliverySpawnSystem } from "./systems/DeliverySpawnSystem.ts";
 import { RoutingTableSystem } from "./systems/RoutingTableSystem.ts";
 import { IPv4Address } from "./network/IPv4Address.ts";
 
 const DELIVERY_VEHICLE_SPEED = 120; // world units per second
+const DELIVERY_SPAWN_INTERVAL_SECONDS = 5;
 
 export class World {
   buildings: Building[];
@@ -19,8 +20,10 @@ export class World {
   vehicles: Vehicle[];
   movementSystem: MovementSystem;
   deliverySystem: DeliverySystem;
+  deliverySpawnSystem: DeliverySpawnSystem;
   interfaceStatusSystem: InterfaceStatusSystem;
   routingTableSystem: RoutingTableSystem;
+  private arrivedVehicleIds: Set<string>;
 
   constructor() {
     this.buildings = [
@@ -63,12 +66,18 @@ export class World {
       new Link("r2-hospital", r2Gi01, hospitalEth0),
     ];
 
-    this.vehicles = [
-      new Vehicle("delivery-1", createMovement(this.links, DELIVERY_VEHICLE_SPEED)),
-    ];
+    // Populated by deliverySpawnSystem rather than seeded here, so every
+    // delivery (including the first) goes through the same spawn path.
+    this.vehicles = [];
 
     this.movementSystem = new MovementSystem(this.vehicles);
     this.deliverySystem = new DeliverySystem(this.vehicles, this.movementSystem);
+    this.deliverySpawnSystem = new DeliverySpawnSystem(
+      this.vehicles,
+      this.links,
+      DELIVERY_VEHICLE_SPEED,
+      DELIVERY_SPAWN_INTERVAL_SECONDS
+    );
     this.interfaceStatusSystem = new InterfaceStatusSystem([...this.buildings, ...this.routers], this.links);
     // Resolve derived status once up front so it's correct before the first tick.
     this.interfaceStatusSystem.recompute();
@@ -76,11 +85,37 @@ export class World {
     // Routing tables derive from operational status, so build them only
     // after that first recompute above.
     this.routingTableSystem.rebuild();
+
+    // Arrivals are recorded here and only spliced out of the shared
+    // `vehicles` array after this tick's systems finish iterating over it
+    // (see removeArrivedVehicles), so a vehicle never disappears out from
+    // under a for-of loop that's still mid-iteration over the same array.
+    this.arrivedVehicleIds = new Set();
+    this.movementSystem.onArrival.on(({ vehicleId }) => {
+      this.arrivedVehicleIds.add(vehicleId);
+    });
   }
 
   update(delta: number): void {
     this.interfaceStatusSystem.update(delta);
     this.routingTableSystem.update(delta);
+    this.deliverySpawnSystem.update(delta);
     this.deliverySystem.update(delta);
+    this.removeArrivedVehicles();
+  }
+
+  // Keeps `vehicles` from growing without bound as deliveries complete.
+  private removeArrivedVehicles(): void {
+    if (this.arrivedVehicleIds.size === 0) {
+      return;
+    }
+
+    for (let i = this.vehicles.length - 1; i >= 0; i--) {
+      if (this.arrivedVehicleIds.has(this.vehicles[i].id)) {
+        this.vehicles.splice(i, 1);
+      }
+    }
+
+    this.arrivedVehicleIds.clear();
   }
 }

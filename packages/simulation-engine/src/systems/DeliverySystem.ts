@@ -11,8 +11,18 @@ export interface DeliveryBlockedEvent {
   currentNodeId: string;
 }
 
+// link.status models a direct physical failure; each endpoint's
+// operationalStatus (derived by InterfaceStatusSystem from administrativeStatus
+// and link.status) additionally covers an interface shut down at either end.
+// Checking both means an administratively-down interface blocks traversal
+// even in the same tick InterfaceStatusSystem last ran, without this system
+// needing to know why an endpoint is down.
 function canTraverseLink(link: Link): boolean {
-  return link.status === "up";
+  return (
+    link.status === "up" &&
+    link.endpointA.operationalStatus === "up" &&
+    link.endpointB.operationalStatus === "up"
+  );
 }
 
 // The traversal/path layer referenced by the Link Failure milestone: it
